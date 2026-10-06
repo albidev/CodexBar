@@ -21,6 +21,7 @@
 ### Fixed
 
 - Codex: price Priority turns from durable session-log tier evidence across resumed scans, preserving saved trace pricing and existing cost history (#4274, #4276). Thanks @luochen211!
+- Codex: preserve terminal local-cost catch-up pauses across scheduled refreshes while allowing explicit retries (#4251). Thanks @vincent-peng!
 
 ## 0.72.0 — 2026-10-04
 
