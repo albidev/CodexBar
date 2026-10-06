@@ -21,6 +21,7 @@
 ### Fixed
 
 - Antigravity: use agy's consumer OAuth client for new Google sign-ins and ask affected accounts to sign in again instead of showing placeholder 100% quotas (#4293). Thanks @oldcai!
+- Antigravity: estimate recorded GPT-OSS-120B medium usage at Google's Vertex list price, including the first pricing refresh, while keeping unavailable prices unknown (#4258). Thanks @urda!
 
 ## 0.72.0 — 2026-10-04
 
