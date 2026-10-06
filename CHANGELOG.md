@@ -21,6 +21,7 @@
 ### Fixed
 
 - Kimi: use the more-exhausted reading when matching legacy counters and ratio pools disagree, and include monthly Total usage in CLI and text menu output (#4306). Thanks @shiva3593 for the report!
+- Settings: finish pending configuration writes before normal quit so edits made immediately before quitting survive a restart (#4224). Thanks @Shenrui-Ma!
 - Codex costs: preserve saved request pricing during bounded cache upgrades when ledger and token-count timestamps differ (#4270). Thanks @gabrielrojasc!
 
 ## 0.72.0 — 2026-10-04
