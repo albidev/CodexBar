@@ -135,12 +135,22 @@ if not re.search(r"(?m)^\s+shard-index:\s+\[0,\s*1\]\s*$", job):
     raise SystemExit("swift-test-macos must run exactly two shard indexes: [0, 1]")
 if not re.search(r"(?m)^\s+shard-count:\s+\[2\]\s*$", job):
     raise SystemExit("swift-test-macos shard-count must be [2]")
-if "./Scripts/test.sh --direct-workers ${{ matrix.direct-workers }}" not in job:
-    raise SystemExit("swift-test-macos must use the direct worker matrix")
-if re.findall(r"(?m)^\s+direct-workers: (\d+)$", job) != ["2", "3"]:
-    raise SystemExit("swift-test-macos must compare two and three direct workers")
 job_timeout = re.search(r"(?m)^    timeout-minutes: (\d+)$", job)
 test_step = re.search(r"(?ms)^      - name: Swift Test\n(.*?)(?=^      - |\Z)", job)
+if not test_step or not re.search(r"(?m)^\s+\./Scripts/test.sh$", test_step.group(1)):
+    raise SystemExit("required hosted tests must explicitly use serial SwiftPM")
+if "--direct-workers" in test_step.group(1) or "continue-on-error" in test_step.group(1):
+    raise SystemExit("required serial tests must remain gating")
+probe_step = re.search(r"(?ms)^      - name: Direct runtime smoke test.*?\n(.*?)(?=^      - |\Z)", job)
+if not probe_step or any(expected not in probe_step.group(1) for expected in [
+    "continue-on-error: true", "timeout-minutes: 5", "success() && matrix.shard-index == 0",
+    "--direct-workers 2 --limit-groups 1",
+]):
+    raise SystemExit("direct smoke test must be bounded, nonblocking, and run on one shard")
+if "failure() || steps.direct-probe.outcome == 'failure'" not in job:
+    raise SystemExit("crash diagnostics must include nonblocking probe failures")
+if 'swift_test_diagnostics.py --since "$RUNNER_TEMP/codexbar-tests-started"' not in job:
+    raise SystemExit("crash diagnostics must use the explicit test-start timestamp")
 step_timeout = re.search(r"(?m)^        timeout-minutes: (\d+)$", test_step.group(1)) if test_step else None
 if not step_timeout or int(step_timeout.group(1)) < 75:
     raise SystemExit("Swift Test must allow at least 75 minutes for discovery and execution")

@@ -10,7 +10,7 @@ import unittest
 from unittest.mock import patch
 
 import ci_swift_test_by_suite as runner
-from direct_swift_test_groups import InventoryMismatch, pool_timeout, prepare_runtime, run_pool, run_worker, runtime_environment, selected_tests, xctest_inventory
+from direct_swift_test_groups import InventoryMismatch, checked, pool_timeout, prepare_runtime, run_pool, run_worker, runtime_environment, selected_tests, xctest_inventory
 
 
 class DirectSwiftTestGroupsTests(unittest.TestCase):
@@ -41,6 +41,50 @@ class DirectSwiftTestGroupsTests(unittest.TestCase):
         self.assertEqual(environment["CODEXBAR_SUPPRESS_TEST_KEYCHAIN_ACCESS"], "1")
         self.assertNotIn("CODEXBAR_ALLOW_TEST_KEYCHAIN_ACCESS", environment)
         self.assertNotIn("CODEXBAR_TEST_CODEX_FILE_FIXTURES", environment)
+
+    def test_runtime_includes_private_frameworks_after_inherited_search_paths(self):
+        with patch.dict(os.environ, {"DYLD_FRAMEWORK_PATH": "/synthetic/override"}, clear=True):
+            environment = runtime_environment(Path("/synthetic/Developer"), Path("/synthetic/home"))
+        self.assertEqual(environment["DYLD_FRAMEWORK_PATH"].split(":"), [
+            "/synthetic/override",
+            "/synthetic/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+            "/synthetic/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        ])
+
+    def test_failed_probe_names_helper_signal_and_redacts_stderr(self):
+        output = io.StringIO()
+        result = SimpleNamespace(returncode=-5, stdout="", stderr="dyld: missing framework; synthetic-secret")
+        with patch("direct_swift_test_groups.subprocess.run", return_value=result), \
+                patch("sys.stderr", output), patch.dict(os.environ, {}, clear=True):
+            with self.assertRaisesRegex(ValueError, r"swiftpm-xctest-helper.*SIGTRAP"):
+                checked(["/synthetic/swiftpm-xctest-helper"], {"API_TOKEN": "synthetic-secret"})
+        self.assertIn("dyld: missing framework", output.getvalue())
+        self.assertNotIn("synthetic-secret", output.getvalue())
+
+    def test_crash_reports_are_fresh_process_scoped_and_redacted(self):
+        from swift_test_diagnostics import print_crash_reports
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            fresh = root / "swiftpm-xctest-helper-fresh.ips"
+            fresh.write_text('Termination Reason: DYLD; synthetic-secret')
+            old = root / "swiftpm-xctest-helper-old.crash"
+            old.write_text("stale report must be excluded")
+            os.utime(old, (1, 1))
+            (root / "Unrelated-fresh.ips").write_text("unrelated report must be excluded")
+            output = io.StringIO()
+            with patch("sys.stderr", output), patch.dict(os.environ, {"API_TOKEN": "synthetic-secret"}, clear=True):
+                self.assertEqual(print_crash_reports([root], 2), 1)
+            self.assertIn("Termination Reason: DYLD", output.getvalue())
+            for private in ["synthetic-secret", "stale report", "unrelated report"]:
+                self.assertNotIn(private, output.getvalue())
+
+    def test_diagnostics_redact_escaped_credentials_but_keep_nonsecret_controls(self):
+        from swift_test_diagnostics import redact
+        environment = {"API_TOKEN": 'synthetic-"secret"', "CODEXBAR_SUPPRESS_TEST_KEYCHAIN_ACCESS": "1"}
+        output = redact(json.dumps(environment) + " /Users/synthetic/Library test 1", environment)
+        self.assertNotIn("secret", output)
+        self.assertNotIn("/Users/synthetic/", output)
+        self.assertIn("test 1", output)
 
     def test_worker_shares_deadline_across_frameworks_and_uses_exact_xctest_ids(self):
         group = [{"name": "ExampleTests", "suite_name": "ExampleTests", "filter_pattern": r"^ExampleTests/"}]
@@ -106,8 +150,10 @@ class DirectSwiftTestGroupsTests(unittest.TestCase):
                     self.assertEqual(command[:-2], swift_command)
                     return str(root / "bin")
                 if command[0].endswith("swiftpm-xctest-helper"):
+                    self.assertEqual(environment["SWIFT_TESTING_ENABLED"], "0")
                     Path(command[2]).write_text('{"tests": []}')
                     return ""
+                self.assertEqual(environment["SWIFT_TESTING_ENABLED"], "1")
                 return "ExampleTests/changed()"
             with patch("direct_swift_test_groups.sys.platform", "darwin"), \
                     patch.dict(os.environ, environment or {}, clear=True), \

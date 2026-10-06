@@ -666,9 +666,18 @@ group executes. Local runs with missing helpers, unsupported toolchains, or Linu
 SwiftPM path with a diagnostic. On CI, requesting direct workers requires a verified direct runtime:
 capability failures also fail the job instead of falling back to serial execution.
 
-Hosted macOS CI uses two shards with two and three workers respectively, retaining the 75-minute
-test step and 90-minute job limits. Both execution modes print the ordered selection groups and
-timing summaries so coverage and throughput can be compared without changing the grouping policy.
+Hosted macOS CI explicitly uses two serial SwiftPM shards, retaining the 75-minute test step and
+90-minute job limits. This avoids a third cold build while direct execution on Xcode 26.6 remains
+unverified after a helper SIGTRAP. A five-minute, nonblocking direct smoke test runs one group on
+shard zero after the complete serial shard passes; it is diagnostic evidence, not coverage or
+throughput proof. Both modes print ordered selection groups and timing summaries.
+
+The adapter includes both public and private platform framework search paths and disables Swift
+Testing during XCTest discovery, matching SwiftPM's launcher. Probe failures print the helper,
+exit status or signal, and redacted stdout/stderr. On CI, signal failures also wait up to five
+seconds for fresh helper crash reports in the original and temporary homes. The workflow collects
+fresh test crash reports again after failures, including nonblocking smoke failures. Credential
+values and local home identities are redacted; unrelated process reports are excluded.
 
 Each group has a fresh process and temporary `HOME` and `CFFIXED_USER_HOME`, with the existing credential
 and session-file isolation, Keychain suppression, timeout, retry, and descendant cleanup.
@@ -679,7 +688,7 @@ SwiftPM's toolchain helper contract and needs compatibility validation when upda
 `--swift-command /path/to/swift-wrapper` works when the wrapper forwards `-print-target-info`
 unchanged to the selected Xcode Swift compiler and supports `build --show-bin-path`. The runner
 queries the wrapper's products directory; a different compiler/target or command prefix arguments
-are rejected with a serial-fallback diagnostic. For a host requiring the native build backend,
+are rejected (local serial fallback, CI failure). For a host requiring the native build backend,
 use the same wrapper for serial and direct comparisons:
 
 ```bash
