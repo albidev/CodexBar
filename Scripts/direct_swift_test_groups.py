@@ -2,7 +2,7 @@
 """Opt-in macOS direct test launch using the selected SwiftPM toolchain helpers.
 
 SwiftPM remains responsible for building and discovery. Each test group retains a fresh
-process, contained descendants, deadline, and an isolated home. Hosted CI stays serial.
+process, contained descendants, deadline, and an isolated home, including on hosted CI.
 """
 from __future__ import annotations
 
@@ -65,8 +65,8 @@ def selected_tests(inventory: list[str], selections: list[dict]) -> list[str]:
 
 
 def prepare_runtime(swift_command: list[str], groups: list[list[dict]], expected: list[str], directory: Path) -> dict:
-    if sys.platform != "darwin" or os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS"):
-        raise ValueError("Direct test groups are an opt-in local macOS mode.")
+    if sys.platform != "darwin":
+        raise ValueError("Direct test groups require macOS.")
     if len(swift_command) != 1:
         raise ValueError("Direct launch does not support Swift command prefix arguments.")
     developer = Path(checked(["xcode-select", "-p"], os.environ.copy()).strip())

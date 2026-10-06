@@ -112,10 +112,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Three shards reduce execution time while amortizing discovery/cold builds.
+        # Two shards share the hosted runner's cores through isolated direct workers.
         # Leave timeout headroom for runner variance and suite growth.
-        shard-index: [0, 1, 2]
-        shard-count: [3]
+        shard-index: [0, 1]
+        shard-count: [2]
+        include:
+          - shard-index: 0
+            direct-workers: 2
+          - shard-index: 1
+            direct-workers: 3
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -159,7 +164,7 @@ jobs:
             CODEXBAR_TEST_RETRY_NON_TIMEOUT_FAILURES=0 \
             CODEXBAR_TEST_SHARD_INDEX=${{ matrix.shard-index }} \
             CODEXBAR_TEST_SHARD_COUNT=${{ matrix.shard-count }} \
-            ./Scripts/test.sh
+            ./Scripts/test.sh --direct-workers ${{ matrix.direct-workers }}
 
       - name: Provider plugin engine A/B goldens
         if: ${{ matrix.shard-index == 0 }}

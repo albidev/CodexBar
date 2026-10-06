@@ -131,10 +131,14 @@ required_not_deferred = (
 )
 if required_not_deferred not in job:
     raise SystemExit("swift-test-macos must skip only required tests explicitly deferred for drafts")
-if not re.search(r"(?m)^\s+shard-index:\s+\[0,\s*1,\s*2\]\s*$", job):
-    raise SystemExit("swift-test-macos must run exactly three shard indexes: [0, 1, 2]")
-if not re.search(r"(?m)^\s+shard-count:\s+\[3\]\s*$", job):
-    raise SystemExit("swift-test-macos shard-count must be [3]")
+if not re.search(r"(?m)^\s+shard-index:\s+\[0,\s*1\]\s*$", job):
+    raise SystemExit("swift-test-macos must run exactly two shard indexes: [0, 1]")
+if not re.search(r"(?m)^\s+shard-count:\s+\[2\]\s*$", job):
+    raise SystemExit("swift-test-macos shard-count must be [2]")
+if "./Scripts/test.sh --direct-workers ${{ matrix.direct-workers }}" not in job:
+    raise SystemExit("swift-test-macos must use the direct worker matrix")
+if re.findall(r"(?m)^\s+direct-workers: (\d+)$", job) != ["2", "3"]:
+    raise SystemExit("swift-test-macos must compare two and three direct workers")
 job_timeout = re.search(r"(?m)^    timeout-minutes: (\d+)$", job)
 test_step = re.search(r"(?ms)^      - name: Swift Test\n(.*?)(?=^      - |\Z)", job)
 step_timeout = re.search(r"(?m)^        timeout-minutes: (\d+)$", test_step.group(1)) if test_step else None
@@ -201,25 +205,32 @@ grep -Fq '| Shard | `2/2` |' "${GITHUB_STEP_SUMMARY}"
 grep -Fq '| Selected selections | `4` |' "${GITHUB_STEP_SUMMARY}"
 grep -Fq '| Selected groups | `1` |' "${GITHUB_STEP_SUMMARY}"
 
-for shard_index in 0 1 2; do
-  reset_case "shard-list-${shard_index}"
-  CODEXBAR_TEST_SHARD_INDEX="$shard_index" CODEXBAR_TEST_SHARD_COUNT=3 \
-    "${ROOT_DIR}/Scripts/test.sh" --group-size 4 --timeout 10 --list-only \
-      --swift-command /bin/bash \
-      --swift-command-arg=-c \
-      --swift-command-arg="${FAKE_SWIFT_SCRIPT}" \
-      --swift-command-arg=fake-swift \
-      > "${TEMP_DIR}/shard-list-${shard_index}.log"
-  grep -Fq "in 1 groups in shard $((shard_index + 1))/3" "${TEMP_DIR}/shard-list-${shard_index}.log"
-done
-cat "${TEMP_DIR}"/shard-list-?.log \
-  | grep -v '^Discovered ' \
-  | sort > "${TEMP_DIR}/shards-combined.log"
 reset_case shard-list-all
 run_harness --group-size 4 --timeout 10 --list-only \
   | grep -v '^Discovered ' \
   | sort > "${TEMP_DIR}/shards-expected.log"
-diff -u "${TEMP_DIR}/shards-expected.log" "${TEMP_DIR}/shards-combined.log"
+for shard_count in 2 3; do
+  for ((shard_index = 0; shard_index < shard_count; shard_index++)); do
+    reset_case "shard-list-${shard_count}-${shard_index}"
+    CODEXBAR_TEST_SHARD_INDEX="$shard_index" CODEXBAR_TEST_SHARD_COUNT="$shard_count" \
+      "${ROOT_DIR}/Scripts/test.sh" --group-size 4 --timeout 10 --list-only \
+        --swift-command /bin/bash \
+        --swift-command-arg=-c \
+        --swift-command-arg="${FAKE_SWIFT_SCRIPT}" \
+        --swift-command-arg=fake-swift \
+        > "${TEMP_DIR}/shard-list-${shard_count}-${shard_index}.log"
+    for workers in 2 3; do
+      run_harness --group-size 4 --timeout 10 --list-only --direct-workers "$workers" \
+        --shard-index "$shard_index" --shard-count "$shard_count" \
+        > "${TEMP_DIR}/direct-list.log"
+      diff -u "${TEMP_DIR}/shard-list-${shard_count}-${shard_index}.log" "${TEMP_DIR}/direct-list.log"
+    done
+  done
+  cat "${TEMP_DIR}"/shard-list-"${shard_count}"-?.log \
+    | grep -v '^Discovered ' \
+    | sort > "${TEMP_DIR}/shards-combined.log"
+  diff -u "${TEMP_DIR}/shards-expected.log" "${TEMP_DIR}/shards-combined.log"
+done
 
 reset_case group-timeout
 export FAKE_SWIFT_MODE=group_timeout
