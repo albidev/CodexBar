@@ -47,7 +47,12 @@ struct NotionPluginTests {
                     },
                     policy: runtime.manifest.cookiePolicy,
                     sessionFileURL: directory.appendingPathComponent("notion-session.json"))
-                let usage = try await runtime.fetchResult(cookies: broker, now: Self.now).usage
+                // Engine callbacks do not retain the task-local test cache scope.
+                let session = try #require(try broker.nextSession(domain: "app.notion.com"))
+                let usage = try await runtime.fetchUsage(
+                    now: Self.now,
+                    cookieSessionResolver: { _, _ in session },
+                    cookieSessionValidator: { _, id in #expect(id == session.id) })
                 #expect(visited.values == ["chrome", "edge"])
                 #expect(usage.primary?.usedPercent == 25)
                 #expect(usage.primary?.resetsAt == Self.now.addingTimeInterval(3600))
