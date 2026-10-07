@@ -2,6 +2,10 @@
 
 ## 0.73.1 — Unreleased
 
+### Added
+
+- Qwen Cloud: show Team Token Plan credit usage, remaining credits, seats, and cycle resets through a bundled plugin, with Individual usage retained when no active Team plan is available (#3711). Thanks @tavioto!
+
 ### Fixed
 
 - Claude: keep Enterprise monthly Extra usage visible in Compact Overview when quota limits are unavailable, respecting the optional-usage preference (#4320). Thanks @wrick17!
