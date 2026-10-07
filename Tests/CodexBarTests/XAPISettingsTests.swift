@@ -15,6 +15,7 @@ struct XAPISettingsTests {
         #expect(!descriptor.metadata.defaultEnabled)
         #expect(descriptor.metadata.balanceOnly)
         #expect(!descriptor.metadata.widgetSelectable)
+        #expect(!descriptor.metadata.burnDownWidgetSelectable)
         #expect(!descriptor.history.supportsPlanUtilization)
         #expect(descriptor.fetchPlan.sourceModes == [.auto, .web])
         #expect(descriptor.metadata.browserCookieOrder == [.chrome])
