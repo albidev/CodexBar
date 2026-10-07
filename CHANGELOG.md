@@ -2,6 +2,10 @@
 
 ## 0.73.1 — Unreleased
 
+### Added
+
+- Notion AI: import signed-in Microsoft Edge sessions after Chrome on macOS, retaining prompt-free background cookie access (#4323). Thanks @jiehua!
+
 ### Fixed
 
 - Claude: keep Enterprise monthly Extra usage visible in Compact Overview when quota limits are unavailable, respecting the optional-usage preference (#4320). Thanks @wrick17!
