@@ -2,6 +2,10 @@
 
 ## 0.73.1 — Unreleased
 
+### Added
+
+- X API: track prepaid and free developer-console credits with a bundled plugin, Chrome/manual cookies, and negative balances in Balance layouts (#4127). Thanks @marklights54-byte!
+
 ### Fixed
 
 - Claude: keep Enterprise monthly Extra usage visible in Compact Overview when quota limits are unavailable, respecting the optional-usage preference (#4320). Thanks @wrick17!
