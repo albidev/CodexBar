@@ -2,6 +2,10 @@
 
 ## 0.73.1 — Unreleased
 
+### Fixed
+
+- Claude: preserve Plan Usage history across external OAuth token rotations and reunite saved fragments with verified account/profile bindings, while keeping other accounts and unverified history separate (#4322). Thanks @urda!
+
 ## 0.73.0 — 2026-10-07
 
 ### Highlights
